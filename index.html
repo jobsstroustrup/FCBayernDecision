@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Ticket‑Decision Visualizer</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+ body{font-family:system-ui,Arial,sans-serif;margin:0;padding:1rem 2rem;max-width:960px}
+ h1{margin-top:.2rem}
+ label{display:inline-block;width:12rem}
+ .param{margin:.3rem 0}
+ #plot{width:100%;max-width:960px;height:580px}
+ table{border-collapse:collapse;margin-top:1rem}
+ th,td{border:1px solid #aaa;padding:.2rem .5rem;text-align:right}
+</style>
+</head>
+<body>
+
+<h1>Soccer‑Ticket Strategy Explorer ⚽</h1>
+
+<p>Adjust the parameters below. The chart shows the expected utility
+(<em>vertical axis</em>) versus the future Bayern ticket price <code>x</code> (<em>horizontal axis</em>)
+for all five strategies.  Intersection with the
+black <strong>Status Quo</strong> line marks the break‑even price.</p>
+
+<div id="controls">
+ <!-- PARAMETERS -->
+ <div class="param"><label for="C1">Old ticket cost C₁ ($):</label><input id="C1" type="number" step="10" value="450"></div>
+ <div class="param"><label for="C2">New ticket now C₂ ($):</label><input id="C2" type="number" step="10" value="280"></div>
+ <div class="param"><label for="pB">Prob. Bayern advance p<sub>B</sub>:</label><input id="pB" type="number" min="0" max="1" step="0.01" value="0.5"></div>
+ <div class="param"><label for="pSell">Resale chance p<sub>sell</sub>:</label><input id="pSell" type="number" min="0" max="1" step="0.01" value="0.4"></div>
+ <div class="param"><label for="S">Resale price S ($):</label><input id="S" type="number" step="10" value="300"></div>
+ <div class="param"><label for="f">Value weight <em>f</em> (no‑Bayern):</label><input id="f" type="number" min="0" max="2" step="0.01" value="0.15"></div>
+ <div class="param"><label for="g">Value weight <em>g</em> (with Bayern):</label><input id="g" type="number" min="0" max="2" step="0.01" value="1"></div>
+</div>
+
+<div id="plot"></div>
+
+<h2>Break‑even prices</h2>
+<table id="breakeven">
+ <thead><tr><th>Strategy</th><th>Break‑even x ($)</th></tr></thead>
+ <tbody></tbody>
+</table>
+
+<!-- ---------- JS LOGIC ---------- -->
+<script>
+const dom = id => document.getElementById(id);
+const inputs = ["C1","C2","pB","pSell","S","f","g"].map(dom);
+
+function EU(x,p){
+  const {C1,C2,pB,pSell,S,f,g}=p;
+  return {
+    status   : f*C1,
+    switchNow: -C2 + pSell*S + (1-pSell)*f*C1 + pB*g*x + (1-pB)*f*C2,
+    bothNow  : -C2 + f*C1               + pB*g*x + (1-pB)*f*C2,
+    waitSwitch: pSell*S + (1-pSell)*f*C1 + pB*(g-1)*x,
+    waitKeep : f*C1                     + pB*(g-1)*x
+  };
+}
+
+function update(){
+  const p = Object.fromEntries(inputs.map(i=>[i.id,parseFloat(i.value)]));
+  const xs = Array.from({length:401},(_,k)=>k*5); // 0…2000
+  const lines = {status:[],switchNow:[],bothNow:[],waitSwitch:[],waitKeep:[]};
+  xs.forEach(x=>{
+    const u = EU(x,p);
+    Object.keys(u).forEach(k=>lines[k].push(u[k]));
+  });
+
+  const traces = [
+    {x:xs,y:lines.status,name:"Status Quo",line:{color:"black",dash:"dot"}},
+    {x:xs,y:lines.switchNow,name:"Buy Now + Sell Old"},
+    {x:xs,y:lines.bothNow,name:"Buy Now & Keep Old"},
+    {x:xs,y:lines.waitSwitch,name:"<i>Wait</i> Buy + Sell Old",line:{dash:"dash"}},
+    {x:xs,y:lines.waitKeep,name:"<i>Wait</i> Buy & Keep Old",line:{dash:"dashdot"}}
+  ];
+  Plotly.newPlot("plot", traces, {
+      margin:{l:60,r:20,t:20,b:50},
+      xaxis:{title:"Future Bayern ticket price  x ($)"},
+      yaxis:{title:"Expected utility  U  ($‑equivalent)"}
+  });
+
+  // ---- break‑even table ----
+  const tbody = dom("breakeven").querySelector("tbody");
+  tbody.innerHTML = "";
+  ["switchNow","bothNow","waitSwitch","waitKeep"].forEach(k=>{
+    const be = findBE(k,lines.status,lines[k],xs,p.g);
+    const row = `<tr><td>${trName(k)}</td><td>${be}</td></tr>`;
+    tbody.insertAdjacentHTML("beforeend",row);
+  });
+}
+
+function trName(k){
+  return {
+    switchNow:"Buy Now + Sell Old",
+    bothNow:"Buy Now & Keep Old",
+    waitSwitch:"Wait → Buy + Sell Old",
+    waitKeep:"Wait → Buy & Keep Old"
+  }[k];
+}
+
+// numeric break‑even search on the sampled grid
+function findBE(key,base,curve,xs,g){
+  if(g===1 && (key==="waitSwitch"||key==="waitKeep")) return "—";
+  for(let i=1;i<xs.length;i++){
+    if((curve[i-1]-base[i-1])*(curve[i]-base[i])<=0){
+      return xs[i-1]+"‑"+xs[i];
+    }
+  }
+  return "None ≤$"+xs.slice(-1);
+}
+
+// live updates
+inputs.forEach(inp=>inp.addEventListener("input",update));
+update(); // first draw
+</script>
+
+<!-- ---------- EXPLANATION SECTION ---------- -->
+<hr>
+<details>
+<summary><strong>Equations&nbsp;and&nbsp;Rationale&nbsp;(click to expand)</strong></summary>
+
+### Symbols
+| Symbol | Meaning |
+|--------|---------|
+| <code>C₁</code> | \$ cost already paid for the quarter‑final ticket (sunk) |
+| <code>C₂</code> | \$ cost to buy the “possible‑Bayern” ticket **today** |
+| <code>p<sub>B</sub></code> | Probability Bayern reach that match |
+| <code>x</code> | Future market price if Bayern are confirmed |
+| <code>p<sub>sell</sub></code>, <code>S</code> | Probability and target price of reselling the old ticket |
+| <code>f</code> | Your subjective fraction of face value if Bayern are **not** in the match |
+| <code>g</code> | Subjective multiple of face value **with** Bayern |
+
+---
+
+### Expected‑utility functions
+
+\[
+\begin{aligned}
+U_{\text{status}} &= f\,C_1 \\[6pt]
+U_{\text{switch}}(x) &= -C_2 + p_{\text{sell}}S + (1-p_{\text{sell}})f\,C_1 + p_{B}g\,x + (1-p_{B})f\,C_2 \\[6pt]
+U_{\text{both}}(x) &= -C_2 + f\,C_1 + p_{B}g\,x + (1-p_{B})f\,C_2 \\[6pt]
+U_{\text{wait switch}}(x) &= p_{\text{sell}}S + (1-p_{\text{sell}})f\,C_1 + p_{B}(g-1)\,x \\[6pt]
+U_{\text{wait keep}}(x) &= f\,C_1 + p_{B}(g-1)\,x
+\end{aligned}
+\]
+
+Set \(U_i(x)=U_{\text{status}}\) to solve for the break‑even price \(x^{\*}\) shown in the table above.
+</details>
+
+</body>
+</html>
