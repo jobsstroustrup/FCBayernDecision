@@ -1,152 +1,526 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Ticket‑Decision Visualizer</title>
-<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
-<style>
- body{font-family:system-ui,Arial,sans-serif;margin:0;padding:1rem 2rem;max-width:960px}
- h1{margin-top:.2rem}
- label{display:inline-block;width:12rem}
- .param{margin:.3rem 0}
- #plot{width:100%;max-width:960px;height:580px}
- table{border-collapse:collapse;margin-top:1rem}
- th,td{border:1px solid #aaa;padding:.2rem .5rem;text-align:right}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FC Bayern Ticket Investment Analysis - Interactive</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h3 {
+            color: #7f8c8d;
+        }
+        .parameters {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .parameter-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .parameter {
+            display: flex;
+            flex-direction: column;
+        }
+        .parameter label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+        .parameter input {
+            padding: 8px;
+            border: 2px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .parameter input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .parameter small {
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        .chart-container {
+            position: relative;
+            height: 500px;
+            margin: 40px 0;
+        }
+        .formula {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+        .strategy-box {
+            border: 2px solid #e0e0e0;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .strategy-box h4 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .results {
+            background-color: #e8f5e9;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+        }
+        .results h3 {
+            margin-top: 0;
+            color: #2e7d32;
+        }
+        .break-even {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1976d2;
+            margin: 10px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .highlight {
+            background-color: #fff3cd !important;
+        }
+        .notation {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+    </style>
 </head>
 <body>
+    <div class="container">
+        <h1>FC Bayern Munich Ticket Investment Analysis</h1>
+        
+        <div class="parameters">
+            <h2>Adjustable Parameters</h2>
+            <div class="parameter-group">
+                <div class="parameter">
+                    <label for="c1">C₁ - Original ticket cost ($)</label>
+                    <input type="number" id="c1" value="450" min="0" step="10">
+                    <small>Already spent (sunk cost)</small>
+                </div>
+                <div class="parameter">
+                    <label for="c2">C₂ - New ticket price today ($)</label>
+                    <input type="number" id="c2" value="280" min="0" step="10">
+                    <small>Current market price</small>
+                </div>
+                <div class="parameter">
+                    <label for="pb">p_B - Probability Bayern advances</label>
+                    <input type="number" id="pb" value="0.50" min="0" max="1" step="0.05">
+                    <small>0 to 1</small>
+                </div>
+                <div class="parameter">
+                    <label for="psell">p_sell - Probability of reselling</label>
+                    <input type="number" id="psell" value="0.40" min="0" max="1" step="0.05">
+                    <small>0 to 1</small>
+                </div>
+                <div class="parameter">
+                    <label for="s">S - Resale price ($)</label>
+                    <input type="number" id="s" value="300" min="0" step="10">
+                    <small>If you can sell</small>
+                </div>
+                <div class="parameter">
+                    <label for="f">f - Value weight (no Bayern)</label>
+                    <input type="number" id="f" value="0.15" min="0" max="1" step="0.05">
+                    <small>Enjoyment fraction</small>
+                </div>
+                <div class="parameter">
+                    <label for="g">g - Value weight (with Bayern)</label>
+                    <input type="number" id="g" value="1.0" min="0" max="2" step="0.1">
+                    <small>Full market value = 1.0</small>
+                </div>
+            </div>
+            <button onclick="updateAnalysis()">Update Analysis</button>
+            <button onclick="resetDefaults()">Reset to Defaults</button>
+        </div>
 
-<h1>Soccer‑Ticket Strategy Explorer ⚽</h1>
+        <div class="notation">
+            <h3>Variable Notation</h3>
+            <p><strong>x</strong> = Future market price of the new venue ticket if Bayern is confirmed to play there</p>
+            <p>All utilities are measured in dollars for direct comparison</p>
+        </div>
 
-<p>Adjust the parameters below. The chart shows the expected utility
-(<em>vertical axis</em>) versus the future Bayern ticket price <code>x</code> (<em>horizontal axis</em>)
-for all five strategies.  Intersection with the
-black <strong>Status Quo</strong> line marks the break‑even price.</p>
+        <h2>Strategy Definitions and Expected Utilities</h2>
+        
+        <div class="strategy-box">
+            <h4>Strategy 0: Status Quo - Keep only the old ticket</h4>
+            <div class="formula">U₀ = f × C₁</div>
+            <p>You attend the original game without Bayern. Your enjoyment is worth f times what you paid.</p>
+        </div>
 
-<div id="controls">
- <!-- PARAMETERS -->
- <div class="param"><label for="C1">Old ticket cost C₁ ($):</label><input id="C1" type="number" step="10" value="450"></div>
- <div class="param"><label for="C2">New ticket now C₂ ($):</label><input id="C2" type="number" step="10" value="280"></div>
- <div class="param"><label for="pB">Prob. Bayern advance p<sub>B</sub>:</label><input id="pB" type="number" min="0" max="1" step="0.01" value="0.5"></div>
- <div class="param"><label for="pSell">Resale chance p<sub>sell</sub>:</label><input id="pSell" type="number" min="0" max="1" step="0.01" value="0.4"></div>
- <div class="param"><label for="S">Resale price S ($):</label><input id="S" type="number" step="10" value="300"></div>
- <div class="param"><label for="f">Value weight <em>f</em> (no‑Bayern):</label><input id="f" type="number" min="0" max="2" step="0.01" value="0.15"></div>
- <div class="param"><label for="g">Value weight <em>g</em> (with Bayern):</label><input id="g" type="number" min="0" max="2" step="0.01" value="1"></div>
-</div>
+        <div class="strategy-box">
+            <h4>Strategy 1: Switch - Buy new ticket now, try to sell old</h4>
+            <div class="formula">
+U₁(x) = -C₂ + p_sell × S + (1 - p_sell) × f × C₁ + p_B × g × x + (1 - p_B) × f × C₂
+            </div>
+            <p>Pay $280 now. Either sell old ticket for $300 (40% chance) or attend it (60% chance). New ticket value depends on Bayern advancing.</p>
+        </div>
 
-<div id="plot"></div>
+        <div class="strategy-box">
+            <h4>Strategy 2: Both - Buy new ticket now, keep old</h4>
+            <div class="formula">
+U₂(x) = -C₂ + f × C₁ + p_B × g × x + (1 - p_B) × f × C₂
+            </div>
+            <p>Pay $280 now and attend both games regardless of outcomes.</p>
+        </div>
 
-<h2>Break‑even prices</h2>
-<table id="breakeven">
- <thead><tr><th>Strategy</th><th>Break‑even x ($)</th></tr></thead>
- <tbody></tbody>
-</table>
+        <div class="strategy-box">
+            <h4>Strategy 3: Wait & Switch - Buy later if Bayern advances, try to sell old</h4>
+            <div class="formula">
+U₃(x) = p_sell × S + (1 - p_sell) × f × C₁ + p_B × (g × x - x) + (1 - p_B) × 0
+            </div>
+            <p>Wait for Bayern decision. If they advance, buy at price x. Try to sell old ticket regardless.</p>
+        </div>
 
-<!-- ---------- JS LOGIC ---------- -->
-<script>
-const dom = id => document.getElementById(id);
-const inputs = ["C1","C2","pB","pSell","S","f","g"].map(dom);
+        <div class="strategy-box">
+            <h4>Strategy 4: Wait & Both - Buy later if Bayern advances, keep old</h4>
+            <div class="formula">
+U₄(x) = f × C₁ + p_B × (g × x - x) + (1 - p_B) × 0
+            </div>
+            <p>Wait for Bayern decision. If they advance, buy at price x and attend both. If not, only attend original.</p>
+        </div>
 
-function EU(x,p){
-  const {C1,C2,pB,pSell,S,f,g}=p;
-  return {
-    status   : f*C1,
-    switchNow: -C2 + pSell*S + (1-pSell)*f*C1 + pB*g*x + (1-pB)*f*C2,
-    bothNow  : -C2 + f*C1               + pB*g*x + (1-pB)*f*C2,
-    waitSwitch: pSell*S + (1-pSell)*f*C1 + pB*(g-1)*x,
-    waitKeep : f*C1                     + pB*(g-1)*x
-  };
-}
+        <div class="results">
+            <h3>Break-Even Analysis Results</h3>
+            <div id="breakEvenResults"></div>
+        </div>
 
-function update(){
-  const p = Object.fromEntries(inputs.map(i=>[i.id,parseFloat(i.value)]));
-  const xs = Array.from({length:401},(_,k)=>k*5); // 0…2000
-  const lines = {status:[],switchNow:[],bothNow:[],waitSwitch:[],waitKeep:[]};
-  xs.forEach(x=>{
-    const u = EU(x,p);
-    Object.keys(u).forEach(k=>lines[k].push(u[k]));
-  });
+        <div class="chart-container">
+            <canvas id="utilityChart"></canvas>
+        </div>
 
-  const traces = [
-    {x:xs,y:lines.status,name:"Status Quo",line:{color:"black",dash:"dot"}},
-    {x:xs,y:lines.switchNow,name:"Buy Now + Sell Old"},
-    {x:xs,y:lines.bothNow,name:"Buy Now & Keep Old"},
-    {x:xs,y:lines.waitSwitch,name:"<i>Wait</i> Buy + Sell Old",line:{dash:"dash"}},
-    {x:xs,y:lines.waitKeep,name:"<i>Wait</i> Buy & Keep Old",line:{dash:"dashdot"}}
-  ];
-  Plotly.newPlot("plot", traces, {
-      margin:{l:60,r:20,t:20,b:50},
-      xaxis:{title:"Future Bayern ticket price  x ($)"},
-      yaxis:{title:"Expected utility  U  ($‑equivalent)"}
-  });
+        <h2>Strategy Comparison Table</h2>
+        <table id="comparisonTable">
+            <thead>
+                <tr>
+                    <th>Future Price (x)</th>
+                    <th>Status Quo</th>
+                    <th>Switch Now</th>
+                    <th>Both Now</th>
+                    <th>Wait & Switch</th>
+                    <th>Wait & Both</th>
+                    <th>Best Strategy</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+            </tbody>
+        </table>
 
-  // ---- break‑even table ----
-  const tbody = dom("breakeven").querySelector("tbody");
-  tbody.innerHTML = "";
-  ["switchNow","bothNow","waitSwitch","waitKeep"].forEach(k=>{
-    const be = findBE(k,lines.status,lines[k],xs,p.g);
-    const row = `<tr><td>${trName(k)}</td><td>${be}</td></tr>`;
-    tbody.insertAdjacentHTML("beforeend",row);
-  });
-}
+        <h2>Key Insights</h2>
+        <div id="insights"></div>
+    </div>
 
-function trName(k){
-  return {
-    switchNow:"Buy Now + Sell Old",
-    bothNow:"Buy Now & Keep Old",
-    waitSwitch:"Wait → Buy + Sell Old",
-    waitKeep:"Wait → Buy & Keep Old"
-  }[k];
-}
+    <script>
+        let chart = null;
 
-// numeric break‑even search on the sampled grid
-function findBE(key,base,curve,xs,g){
-  if(g===1 && (key==="waitSwitch"||key==="waitKeep")) return "—";
-  for(let i=1;i<xs.length;i++){
-    if((curve[i-1]-base[i-1])*(curve[i]-base[i])<=0){
-      return xs[i-1]+"‑"+xs[i];
-    }
-  }
-  return "None ≤$"+xs.slice(-1);
-}
+        function calculateUtilities(params, x) {
+            const { c1, c2, pb, psell, s, f, g } = params;
+            
+            // Strategy 0: Status quo
+            const u0 = f * c1;
+            
+            // Strategy 1: Switch (buy now, try to sell)
+            const u1 = -c2 + psell * s + (1 - psell) * f * c1 + pb * g * x + (1 - pb) * f * c2;
+            
+            // Strategy 2: Both (buy now, keep both)
+            const u2 = -c2 + f * c1 + pb * g * x + (1 - pb) * f * c2;
+            
+            // Strategy 3: Wait & Switch
+            const u3 = psell * s + (1 - psell) * f * c1 + pb * (g * x - x);
+            
+            // Strategy 4: Wait & Both
+            const u4 = f * c1 + pb * (g * x - x);
+            
+            return { u0, u1, u2, u3, u4 };
+        }
 
-// live updates
-inputs.forEach(inp=>inp.addEventListener("input",update));
-update(); // first draw
-</script>
+        function calculateBreakEven(params) {
+            const { c1, c2, pb, psell, s, f, g } = params;
+            const u0 = f * c1;
+            
+            // Break-even for Strategy 1
+            const x1 = (u0 + c2 - psell * s - (1 - psell) * f * c1 - (1 - pb) * f * c2) / (pb * g);
+            
+            // Break-even for Strategy 2
+            const x2 = (c2 - (1 - pb) * f * c2) / (pb * g);
+            
+            // Break-even for Strategy 3
+            const x3 = (u0 - psell * s - (1 - psell) * f * c1) / (pb * (g - 1));
+            
+            // Break-even for Strategy 4
+            const x4 = 0; // Always equals u0 when x = 0
+            
+            return { x1, x2, x3, x4 };
+        }
 
-<!-- ---------- EXPLANATION SECTION ---------- -->
-<hr>
-<details>
-<summary><strong>Equations&nbsp;and&nbsp;Rationale&nbsp;(click to expand)</strong></summary>
+        function updateAnalysis() {
+            const params = {
+                c1: parseFloat(document.getElementById('c1').value),
+                c2: parseFloat(document.getElementById('c2').value),
+                pb: parseFloat(document.getElementById('pb').value),
+                psell: parseFloat(document.getElementById('psell').value),
+                s: parseFloat(document.getElementById('s').value),
+                f: parseFloat(document.getElementById('f').value),
+                g: parseFloat(document.getElementById('g').value)
+            };
+            
+            // Calculate break-even points
+            const breakEvens = calculateBreakEven(params);
+            
+            // Update break-even results
+            const resultsDiv = document.getElementById('breakEvenResults');
+            resultsDiv.innerHTML = `
+                <p class="break-even">Strategy 1 (Switch Now) breaks even at x = $${breakEvens.x1.toFixed(2)}</p>
+                <p class="break-even">Strategy 2 (Both Now) breaks even at x = $${breakEvens.x2.toFixed(2)}</p>
+                <p class="break-even">Strategy 3 (Wait & Switch) breaks even at x = $${breakEvens.x3.toFixed(2)}</p>
+                <p class="break-even">Strategy 4 (Wait & Both) always equals status quo when g = 1</p>
+                <p>Status Quo utility: $${(params.f * params.c1).toFixed(2)}</p>
+            `;
+            
+            // Generate data for chart
+            const xValues = [];
+            const datasets = {
+                u0: [],
+                u1: [],
+                u2: [],
+                u3: [],
+                u4: []
+            };
+            
+            for (let x = 0; x <= 1000; x += 10) {
+                xValues.push(x);
+                const utilities = calculateUtilities(params, x);
+                datasets.u0.push(utilities.u0);
+                datasets.u1.push(utilities.u1);
+                datasets.u2.push(utilities.u2);
+                datasets.u3.push(utilities.u3);
+                datasets.u4.push(utilities.u4);
+            }
+            
+            // Update or create chart
+            const ctx = document.getElementById('utilityChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+            
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: xValues,
+                    datasets: [
+                        {
+                            label: 'Status Quo',
+                            data: datasets.u0,
+                            borderColor: 'rgb(128, 128, 128)',
+                            borderDash: [5, 5],
+                            fill: false,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Switch Now',
+                            data: datasets.u1,
+                            borderColor: 'rgb(255, 99, 132)',
+                            fill: false,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Both Now',
+                            data: datasets.u2,
+                            borderColor: 'rgb(54, 162, 235)',
+                            fill: false,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Wait & Switch',
+                            data: datasets.u3,
+                            borderColor: 'rgb(255, 206, 86)',
+                            fill: false,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Wait & Both',
+                            data: datasets.u4,
+                            borderColor: 'rgb(75, 192, 192)',
+                            fill: false,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Expected Utility vs Future Price (x)',
+                            font: {
+                                size: 18
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Future Price if Bayern Confirmed ($)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Expected Utility ($)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Update comparison table
+            updateComparisonTable(params);
+            
+            // Update insights
+            updateInsights(params, breakEvens);
+        }
 
-### Symbols
-| Symbol | Meaning |
-|--------|---------|
-| <code>C₁</code> | \$ cost already paid for the quarter‑final ticket (sunk) |
-| <code>C₂</code> | \$ cost to buy the “possible‑Bayern” ticket **today** |
-| <code>p<sub>B</sub></code> | Probability Bayern reach that match |
-| <code>x</code> | Future market price if Bayern are confirmed |
-| <code>p<sub>sell</sub></code>, <code>S</code> | Probability and target price of reselling the old ticket |
-| <code>f</code> | Your subjective fraction of face value if Bayern are **not** in the match |
-| <code>g</code> | Subjective multiple of face value **with** Bayern |
+        function updateComparisonTable(params) {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+            
+            const testPrices = [200, 300, 400, 500, 600, 700, 800, 900];
+            
+            testPrices.forEach(x => {
+                const utilities = calculateUtilities(params, x);
+                const row = tableBody.insertRow();
+                
+                const values = [utilities.u0, utilities.u1, utilities.u2, utilities.u3, utilities.u4];
+                const maxUtility = Math.max(...values);
+                
+                row.insertCell(0).textContent = `$${x}`;
+                row.insertCell(1).textContent = `$${utilities.u0.toFixed(2)}`;
+                row.insertCell(2).textContent = `$${utilities.u1.toFixed(2)}`;
+                row.insertCell(3).textContent = `$${utilities.u2.toFixed(2)}`;
+                row.insertCell(4).textContent = `$${utilities.u3.toFixed(2)}`;
+                row.insertCell(5).textContent = `$${utilities.u4.toFixed(2)}`;
+                
+                // Find best strategy
+                let bestStrategy = 'Status Quo';
+                if (Math.abs(utilities.u1 - maxUtility) < 0.01) bestStrategy = 'Switch Now';
+                else if (Math.abs(utilities.u2 - maxUtility) < 0.01) bestStrategy = 'Both Now';
+                else if (Math.abs(utilities.u3 - maxUtility) < 0.01) bestStrategy = 'Wait & Switch';
+                else if (Math.abs(utilities.u4 - maxUtility) < 0.01) bestStrategy = 'Wait & Both';
+                
+                const bestCell = row.insertCell(6);
+                bestCell.textContent = bestStrategy;
+                bestCell.style.fontWeight = 'bold';
+            });
+        }
 
----
+        function updateInsights(params, breakEvens) {
+            const insightsDiv = document.getElementById('insights');
+            
+            let insights = '<ul>';
+            
+            if (params.g === 1) {
+                insights += '<li>With g = 1 (ticket worth exactly market price), waiting strategies only benefit from avoiding downside risk.</li>';
+            } else if (params.g > 1) {
+                insights += `<li>With g > 1 (ticket worth ${(params.g * 100).toFixed(0)}% of market price to you), there\'s extra value in securing Bayern tickets.</li>`;
+            }
+            
+            insights += `<li>The 40% chance to recover $${params.s} from the original ticket significantly improves the "Switch" strategies.</li>`;
+            
+            if (breakEvens.x1 < breakEvens.x2) {
+                insights += '<li>Strategy 1 (Switch Now) breaks even before Strategy 2 (Both Now) because you might recover money from selling.</li>';
+            }
+            
+            insights += `<li>If you believe the price will exceed $${Math.max(breakEvens.x1, breakEvens.x2).toFixed(0)}, buying now provides positive expected value.</li>`;
+            
+            insights += '</ul>';
+            
+            insightsDiv.innerHTML = insights;
+        }
 
-### Expected‑utility functions
+        function resetDefaults() {
+            document.getElementById('c1').value = 450;
+            document.getElementById('c2').value = 280;
+            document.getElementById('pb').value = 0.50;
+            document.getElementById('psell').value = 0.40;
+            document.getElementById('s').value = 300;
+            document.getElementById('f').value = 0.15;
+            document.getElementById('g').value = 1.0;
+            updateAnalysis();
+        }
 
-\[
-\begin{aligned}
-U_{\text{status}} &= f\,C_1 \\[6pt]
-U_{\text{switch}}(x) &= -C_2 + p_{\text{sell}}S + (1-p_{\text{sell}})f\,C_1 + p_{B}g\,x + (1-p_{B})f\,C_2 \\[6pt]
-U_{\text{both}}(x) &= -C_2 + f\,C_1 + p_{B}g\,x + (1-p_{B})f\,C_2 \\[6pt]
-U_{\text{wait switch}}(x) &= p_{\text{sell}}S + (1-p_{\text{sell}})f\,C_1 + p_{B}(g-1)\,x \\[6pt]
-U_{\text{wait keep}}(x) &= f\,C_1 + p_{B}(g-1)\,x
-\end{aligned}
-\]
-
-Set \(U_i(x)=U_{\text{status}}\) to solve for the break‑even price \(x^{\*}\) shown in the table above.
-</details>
-
+        // Initial load
+        updateAnalysis();
+    </script>
 </body>
 </html>
